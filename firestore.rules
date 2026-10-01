@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+    function isDriver() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver'; }
+    match /users/{uid} { allow read: if signedIn() && (uid == request.auth.uid || isAdmin()); allow create: if signedIn() && uid == request.auth.uid; allow update: if signedIn() && (uid == request.auth.uid || isAdmin()); }
+    match /students/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /buses/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /trips/{id} { allow read: if signedIn(); allow create, update: if isDriver() || isAdmin(); allow delete: if isAdmin(); }
+    match /pickupRequests/{id} { allow read: if signedIn() && (resource.data.parentUid == request.auth.uid || isAdmin()); allow create: if signedIn() && request.resource.data.parentUid == request.auth.uid; allow update: if isAdmin(); }
+    match /notifications/{id} { allow read: if signedIn() && resource.data.uid == request.auth.uid; allow create, update, delete: if isAdmin(); }
+  }
+}
